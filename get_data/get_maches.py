@@ -2,7 +2,6 @@ import http.client
 import json
 import dotenv
 import os
-#from numpy import set_string_function
 import pandas as pd
 
 #loading env variables
