@@ -87,10 +87,6 @@ def get_team_goals(x, team):
 
     return total_goals, total_goals_suffered
 
-
-df.groupby(['season', 'match_day', 'home_team']).min()[['ht_total_points', 'ht_goals', 'ht_goals_sf']].reset_index()
-
-
 def get_rank(x):
 
     #get current rank
@@ -135,6 +131,19 @@ def get_rank(x):
 
     return home_team_rank, home_team_last_rank,  away_team_rank, away_team_last_rank
 
+def get_days_ls_match(x, team):
+
+    test_date = df[(df.match_day == (x.match_day - 1)) & (df.season == x.season) & (df.home_team == team)].date
+
+    if len(test_date) > 0:
+        last_date = test_date.max()
+    else:
+        last_date = df[(df.match_day == (x.match_day - 1)) & (df.season == x.season) & (df.away_team == team)].date.max()
+
+    days = (x.date - last_date)/np.timedelta64(1,'D')
+
+    return days
+
 #points so far,  points in latest 3 games and general stats
 df[['ht_total_points', 'ht_home_points','ht_away_points', 'ht_ls_points',
      'ht_wins', 'ht_draws', 'ht_losses']] = pd.DataFrame(
@@ -163,13 +172,14 @@ df[['ht_ranking', 'ht_last_ranking', 'at_ranking', 'at_last_ranking']] = pd.Data
         lambda x: get_rank(x), axis = 1).to_list(), index = df.index)
 
 
+#days between last game
+df['ht_d_between_ls_match'] = df.apply(lambda x: get_days_ls_match(x, x.home_team), axis = 1)
+df['at_d_between_ls_match'] = df.apply(lambda x: get_days_ls_match(x, x.away_team), axis = 1)
 
-#last season's position at current round
-#history between two teams
+
 #streak of wins
 #streak of draws
 #streak of losses
-#days between last game
 #result between last game of the teams
 #maybe create my own metric to give weight to the teams
 
