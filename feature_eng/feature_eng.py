@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from numpy.lib import tracemalloc_domain
 import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
@@ -26,6 +27,7 @@ df['h_match_points'] = np.where(df['winner'] == 'HOME_TEAM', 3 , np.where(df['wi
 #away points made in each match
 df['a_match_points'] = np.where(df['winner'] == 'AWAY_TEAM', 3 , np.where(df['winner'] == 'DRAW',1, 0))
 
+df['match_name'] = df.home_team + "x" + df.away_team
 
 def get_team_points(x, team):
 
@@ -135,6 +137,7 @@ def get_days_ls_match(x, team):
 
     test_date = df[(df.match_day == (x.match_day - 1)) & (df.season == x.season) & (df.home_team == team)].date
 
+    #checks if the last date was hosted by the current home team
     if len(test_date) > 0:
         last_date = test_date.max()
     else:
@@ -143,6 +146,26 @@ def get_days_ls_match(x, team):
     days = (x.date - last_date)/np.timedelta64(1,'D')
 
     return days
+
+def get_ls_winner(x):
+    temp_df = df[(df.date < x.date) & (df.match_name.str.contains(x.home_team)) & (df.match_name.str.contains(x.away_team))]
+    temp_df = temp_df[temp_df.date == temp_df.date.max()]
+    
+    #checking if there was a previous match
+    if len(temp_df) == 0:
+        result = None
+    elif temp_df.winner.all() == 'DRAW':
+        result = 'DRAW'
+    elif temp_df.home_team.all() == x.home_team:
+        result = temp_df.winner.all()
+    else:
+        if temp_df.winner.all() == 'HOME_TEAM':
+            result = 'HOME_TEAM'
+        else:
+            result = 'AWAY_TEAM'
+    
+    return result
+
 
 #points so far,  points in latest 3 games and general stats
 df[['ht_total_points', 'ht_home_points','ht_away_points', 'ht_ls_points',
@@ -177,11 +200,17 @@ df['ht_d_between_ls_match'] = df.apply(lambda x: get_days_ls_match(x, x.home_tea
 df['at_d_between_ls_match'] = df.apply(lambda x: get_days_ls_match(x, x.away_team), axis = 1)
 
 
-#streak of wins
-#streak of draws
-#streak of losses
 #result between last game of the teams
+df['ls_winner'] = df.apply(lambda x: get_ls_winner(x), axis = 1)
+
+
+
 #maybe create my own metric to give weight to the teams
+
+#is on win streak
+#is on draw strak
+#is on loss streak
+
 
 
 #amount of home w
