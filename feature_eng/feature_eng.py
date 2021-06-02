@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from numpy.core.numeric import full
 from numpy.lib import tracemalloc_domain
 import pandas as pd
 
@@ -29,109 +30,100 @@ df['a_match_points'] = np.where(df['winner'] == 'AWAY_TEAM', 3 , np.where(df['wi
 
 df['match_name'] = df.home_team + "x" + df.away_team
 
-def get_team_points(x, team):
+def get_rank(x, team, delta_year):
+    full_season_df = df[(df.season == (x.season - delta_year))]
 
-    #home stats    
+    full_home_df = full_season_df.groupby(['home_team']).sum()[['h_match_points', 'home_score', 'away_score']].reset_index()
+    full_home_df.columns = ['team', 'points', 'goals', 'goals_sf']
+
+    full_away_df = full_season_df.groupby(['away_team']).sum()[['a_match_points', 'away_score', 'home_score']].reset_index()
+    full_away_df.columns = ['team', 'points', 'goals', 'goals_sf']
+
+    rank_df = pd.concat([full_home_df, full_away_df], ignore_index = True)
+    rank_df['goals_df'] = rank_df.goals - rank_df.goals_sf
+    rank_df = rank_df.groupby(['team']).sum().reset_index()
+    rank_df = rank_df.sort_values(by = ['points', 'goals_df', 'goals'], ascending = False)
+    rank_df['rank'] = rank_df.points.rank(method = 'first', ascending = False).astype(int)
+
+    team_rank = rank_df[rank_df.team == team].min()['rank']
+
+    return team_rank
+
+def get_match_stats(x, team, delta):
+    #home df filter    
     home_df = df[(df.home_team == team) & (df.match_day < x.match_day) & (df.season == x.season)]
 
-    home_points = home_df.h_match_points.sum()
-
-    home_wins = len(home_df[home_df['winner'] == 'HOME_TEAM'])
-    home_draws = len(home_df[home_df['winner'] == 'DRAW'])
-    home_losses = len(home_df[home_df['winner'] == 'AWAY_TEAM'])
-
-
-    #away stats
+    #home df filter
     away_df = df[(df.away_team == team) & (df.match_day < x.match_day) & (df.season == x.season)]
 
-    away_points = away_df.h_match_points.sum()
-    away_wins = len(away_df[away_df['winner'] == 'AWAY_TEAM'])
-    away_draws = len(away_df[away_df['winner'] == 'DRAW'])
-    away_losses = len(away_df[away_df['winner'] == 'HOME_TEAM'])
+    #points
+    home_table = home_df.groupby(['match_day']).sum()[['h_match_points', 'home_score', 'away_score']].reset_index()
+    home_table.columns = ['match_day', 'points', 'goals', 'goals_sf']
+    home_table['goals_df'] = home_table.goals - home_table.goals_sf
+    home_table['host'] = 'home'
 
-    #total stats
+    away_table = away_df.groupby(['match_day']).sum()[['a_match_points', 'away_score', 'home_score']].reset_index()
+    away_table.columns = ['match_day', 'points', 'goals', 'goals_sf']
+    away_table['goals_df'] = away_table.goals - away_table.goals_sf
+    away_table['host'] = 'away'
+
+    full_table = pd.concat([home_table, away_table], ignore_index = True)
+    
+    #get streaks
+    full_table = full_table.sort_values('match_day', ascending = True)
+    full_table['start_of_streak'] = full_table.points.ne(full_table.points.shift())
+    full_table['streak_id'] = full_table['start_of_streak'].cumsum()
+    full_table['streak_counter'] = full_table.groupby('streak_id').cumcount() + 1
+    full_table = full_table[full_table.match_day == full_table.match_day.max()]
+
+    if full_table.points.min() == 3:
+        win_streak = full_table.streak_counter.sum()
+        loss_streak = 0
+        draw_streak = 0
+    elif full_table.points.min() == 0:
+        win_streak = 0
+        loss_streak = full_table.streak_counter.sum()
+        draw_streak = 0
+    else:
+        win_streak = 0
+        loss_streak = 0
+        draw_streak = full_table.streak_counter.sum()
+    
+    home_points = home_table.points.sum()
+    home_goals = home_table.goals.sum()
+    home_goals_sf = home_table.goals_sf.sum()
+    home_wins = len(home_table[home_table.points == 3])
+    home_draws = len(home_table[home_table.points == 1])
+    home_losses = len(home_table[home_table.points == 0])
+
+
+    away_points = away_table.points.sum()
+    away_goals = away_table.goals.sum()
+    away_goals_sf = away_table.goals_sf.sum()
+    away_wins = len(away_table[away_table.points == 3])
+    away_draws = len(away_table[away_table.points == 1])
+    away_losses = len(away_table[away_table.points == 0])
+
+    #total points stats
     total_points = home_points + away_points
+    total_goals = home_goals + away_goals
+    total_goals_sf = home_goals_sf + away_goals_sf
     total_wins = home_wins + away_wins
     total_draws = home_draws + away_draws
     total_losses = home_losses + away_losses
+    
 
-    #home points in last 3 games
-    h_points = home_df[(home_df.match_day >= (x.match_day - 3)) & (home_df.match_day < x.match_day)]
-    home_l_points = h_points.h_match_points.sum()
+    #getting data for a given delta
+    h_delta = home_table[(home_table.match_day >= (x.match_day - delta)) & (home_table.match_day < x.match_day)]
+    home_l_points = h_delta.points.sum()
 
-    #away points in last 3 games
-    a_points = away_df[(away_df.match_day >= (x.match_day - 3)) & (away_df.match_day < x.match_day)]
-    away_l_points = a_points.a_match_points.sum()
+    a_delta = away_table[(away_table.match_day >= (x.match_day - delta)) & (away_table.match_day < x.match_day)]
+    away_l_points = a_delta.points.sum()
 
-    #total points in last 3 games
+    #total points in given delta
     total_l_points = home_l_points + away_l_points
 
-    return total_points , home_points , away_points, total_l_points, total_wins, total_draws, total_losses
-
-
-def get_team_goals(x, team):
-
-    #get team home goals made and suffered
-    home_df = df[(df.match_day < x.match_day) & (df.home_team == team) & (df.season == x.season)]
-    home_goals = home_df['home_score'].sum()
-    home_goals_suffered = home_df['away_score'].sum()      
-
-    #get team away goals
-    away_df = df[(df.match_day < x.match_day) & (df.away_team == team) & (df.season == x.season)]
-    away_goals = away_df['away_score'].sum()    
-    away_goals_suffered = away_df['home_score'].sum()     
-
-    #total goals made
-    total_goals = home_goals + away_goals
-
-    #total goals suffered
-    total_goals_suffered = home_goals_suffered + away_goals_suffered
-
-    return total_goals, total_goals_suffered
-
-def get_rank(x):
-
-    #get current rank
-    temp_df = df[(df.season == x.season) & (df.match_day == x.match_day)]
-
-    home_df = temp_df.groupby(['season', 'match_day', 'home_team']).min()[['ht_total_points', 'ht_goals', 'ht_goals_sf']].reset_index()
-    home_df.columns = ['season', 'match_day', 'team', 'total_points', 'goals', 'goals_sf']
-
-    away_df = temp_df.groupby(['season', 'match_day', 'away_team']).min()[['at_total_points', 'at_goals', 'at_goals_sf']].reset_index()
-    away_df.columns = ['season', 'match_day', 'team', 'total_points', 'goals', 'goals_sf']
-
-    rank_df = pd.concat([home_df, away_df], ignore_index = True)
-    rank_df['goals_df'] = rank_df.goals - rank_df.goals_sf
-    rank_df = rank_df.sort_values(by = ['total_points', 'goals_sf', 'goals'], ascending = False)
-    rank_df['rank'] = rank_df.total_points.rank(method = 'first', ascending = False).astype(int)
-
-    home_team_rank = rank_df[rank_df.team == x.home_team].min()['rank']
-    away_team_rank = rank_df[rank_df.team == x.away_team].min()['rank']
-    
-    #last season rank
-    if x.season != 2018:
-        temp_df = df[(df.season == (x.season - 1)) & (df.match_day <= 38)]
-
-        home_df = temp_df.groupby(['season', 'home_team']).sum()[['h_match_points', 'home_score', 'away_score']].reset_index()
-        home_df.columns = ['season', 'team', 'total_points', 'goals', 'goals_sf']
-
-        away_df = temp_df.groupby(['season', 'away_team']).sum()[['a_match_points', 'away_score', 'home_score']].reset_index()
-        away_df.columns = ['season', 'team', 'total_points', 'goals', 'goals_sf']
-
-        rank_df = pd.concat([home_df, away_df], ignore_index = True)
-        rank_df = rank_df.groupby(['season', 'team']).sum().reset_index()
-        rank_df['goals_df'] = rank_df.goals - rank_df.goals_sf
-        rank_df = rank_df.sort_values(by = ['total_points', 'goals_df', 'goals'], ascending = False)
-        rank_df['rank'] = rank_df.total_points.rank(method = 'first', ascending = False).astype(int)
-
-        home_team_last_rank = rank_df[rank_df.team == x.home_team].min()['rank']
-        away_team_last_rank = rank_df[rank_df.team == x.away_team].min()['rank']
-        
-    else:
-        home_team_last_rank = 0
-        away_team_last_rank = 0
-
-    return home_team_rank, home_team_last_rank,  away_team_rank, away_team_last_rank
+    return total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
 
 def get_days_ls_match(x, team):
 
@@ -166,51 +158,42 @@ def get_ls_winner(x):
     
     return result
 
+def create_main_cols(x, team):
 
-#points so far,  points in latest 3 games and general stats
-df[['ht_total_points', 'ht_home_points','ht_away_points', 'ht_ls_points',
-     'ht_wins', 'ht_draws', 'ht_losses']] = pd.DataFrame(
+    #get current and last delta (years) rank
+    team_rank = get_rank(x, team, 0)
+    ls_team_rank = get_rank(x, team, 1)
+
+    #get main match stats
+    total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak = get_match_stats(x, team, 3)
+
+    #get days since last match
+    days = get_days_ls_match(x, team)    
+
+    return team_rank, ls_team_rank, days, total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
+
+cols = ['_rank', '_ls_rank', '_days_ls_match', '_points',
+ '_l_points', '_goals', '_goals_sf', '_wins', '_draws', '_losses', '_win_streak', '_loss_streak', '_draw_streak']
+
+ht_cols = ['ht' + col for col in cols]
+at_cols = ['at' + col for col in cols]
+
+#gets main cols for home and away team
+df[ht_cols] = pd.DataFrame(
     df.apply(
-        lambda x: get_team_points(x, x.home_team), axis = 1).to_list(), index = df.index)
+        lambda x: create_main_cols(x, x.home_team), axis = 1).to_list(), index = df.index)
 
-df[['at_total_points', 'at_home_points','at_away_points', 'at_ls_points',
-     'at_wins', 'at_draws', 'at_losses']] = pd.DataFrame(
+df[at_cols] = pd.DataFrame(
     df.apply(
-        lambda x: get_team_points(x, x.away_team), axis = 1).to_list(), index = df.index)
-     
-
-#goals so far made and suffered
-df[['ht_goals', 'ht_goals_sf']] = pd.DataFrame(
-    df.apply(
-        lambda x: get_team_goals(x, x.home_team), axis = 1).to_list(), index = df.index)
-
-df[['at_goals', 'at_goals_sf']] = pd.DataFrame(
-    df.apply(
-        lambda x: get_team_goals(x, x.away_team), axis = 1).to_list(), index = df.index)
-
-
-#get position in table
-df[['ht_ranking', 'ht_last_ranking', 'at_ranking', 'at_last_ranking']] = pd.DataFrame(
-    df.apply(
-        lambda x: get_rank(x), axis = 1).to_list(), index = df.index)
-
-
-#days between last game
-df['ht_d_between_ls_match'] = df.apply(lambda x: get_days_ls_match(x, x.home_team), axis = 1)
-df['at_d_between_ls_match'] = df.apply(lambda x: get_days_ls_match(x, x.away_team), axis = 1)
-
+        lambda x: create_main_cols(x, x.away_team), axis = 1).to_list(), index = df.index)        
 
 #result between last game of the teams
 df['ls_winner'] = df.apply(lambda x: get_ls_winner(x), axis = 1)
 
+df.to_csv('ft_df.csv', index = False)
 
 
 #maybe create my own metric to give weight to the teams
-
-#is on win streak
-#is on draw strak
-#is on loss streak
-
 
 
 #amount of home w
@@ -219,4 +202,3 @@ df['ls_winner'] = df.apply(lambda x: get_ls_winner(x), axis = 1)
 #amount of away d
 #amount of home l
 #amount of away l
-
