@@ -5,7 +5,8 @@ from numpy.lib import tracemalloc_domain
 import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
-DATA_DIR = os.path.join(BASE_DIR, 'get_data')
+DATA_DIR = os.path.join(BASE_DIR, 'get_data', 'data')
+FT_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data')
 
 df = pd.read_csv(os.path.join(DATA_DIR, 'matches.csv'))
 
@@ -190,7 +191,8 @@ df[at_cols] = pd.DataFrame(
 #result between last game of the teams
 df['ls_winner'] = df.apply(lambda x: get_ls_winner(x), axis = 1)
 
-df.to_csv('ft_df.csv', index = False)
+#saving data
+df.to_csv(os.path.join(FT_DIR, 'ft_df.csv', index = False)
 
 
 #maybe create my own metric to give weight to the teams
