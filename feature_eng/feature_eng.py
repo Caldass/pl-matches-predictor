@@ -14,14 +14,38 @@ df = pd.read_csv(os.path.join(DATA_DIR, 'matches.csv'))
 df.info()
 df.isna().sum()
 
-to_int = ['season', 'match_day', 'home_score', 'away_score']
+#filling NA home odds
+df.fillna(0, inplace = True)
 
-#turning columns into integers
+
+#setting season to be the start year of a season
+df['season'] = df.season.str.split('/').str[0]
+
+#creating home and away score
+df[['home_team', 'away_team']] = df.match_name.str.split(' - ', expand = True)
+
+#creating home and away score
+df[['home_score', 'away_score']] = df.result.str.split(':', expand = True)
+
+df['winner'] = np.where(df.home_score > df.away_score, 'HOME_TEAM', np.where(df.away_score > df.home_score, 'AWAY_TEAM', 'DRAW'))
+
+df.drop(columns = 'result', inplace = True)
+
+to_int = ['season','home_score', 'away_score']
+to_float = ['a_odd', 'd_odd']
+
+
+#turning columns into integers and floats
 for col in to_int:
     df[col] = df[col].astype(int)
 
-#changing from utc to datetime
-df['date'] = pd.to_datetime(pd.to_datetime(df.date, utc = True).dt.strftime("%Y-%m-%d"))
+for col in to_float:
+    df[col] = df[col].str.replace('-', '0')
+    df[col] = df[col].astype(float)
+
+
+#changing from date to datetime
+df['date'] = pd.to_datetime(df.date)
 
 #home points made in each match
 df['h_match_points'] = np.where(df['winner'] == 'HOME_TEAM', 3 , np.where(df['winner'] == 'DRAW',1, 0))
@@ -29,7 +53,13 @@ df['h_match_points'] = np.where(df['winner'] == 'HOME_TEAM', 3 , np.where(df['wi
 #away points made in each match
 df['a_match_points'] = np.where(df['winner'] == 'AWAY_TEAM', 3 , np.where(df['winner'] == 'DRAW',1, 0))
 
-df['match_name'] = df.home_team + "x" + df.away_team
+
+cols_order = ['season', 'date', 'match_name', 'home_team', 'away_team', 'winner', 'home_score', 'away_score',
+                'h_odd', 'd_odd', 'a_odd', 'h_match_points', 'a_match_points']
+
+df = df[cols_order]
+
+df.head()
 
 def get_rank(x, team, delta_year):
     full_season_df = df[(df.season == (x.season - delta_year))]
@@ -50,45 +80,46 @@ def get_rank(x, team, delta_year):
 
     return team_rank
 
-def get_match_stats(x, team, delta):
+def get_match_stats(x, team):
     #home df filter    
-    home_df = df[(df.home_team == team) & (df.match_day < x.match_day) & (df.season == x.season)]
+    home_df = df[(df.home_team == team) & (df.date < x.date) & (df.season == x.season)]
 
     #home df filter
-    away_df = df[(df.away_team == team) & (df.match_day < x.match_day) & (df.season == x.season)]
+    away_df = df[(df.away_team == team) & (df.date < x.date) & (df.season == x.season)]
 
     #points
-    home_table = home_df.groupby(['match_day']).sum()[['h_match_points', 'home_score', 'away_score']].reset_index()
-    home_table.columns = ['match_day', 'points', 'goals', 'goals_sf']
+    home_table = home_df.groupby(['date']).sum()[['h_match_points', 'home_score', 'away_score']].reset_index()
+    home_table.columns = ['date', 'points', 'goals', 'goals_sf']
     home_table['goals_df'] = home_table.goals - home_table.goals_sf
     home_table['host'] = 'home'
 
-    away_table = away_df.groupby(['match_day']).sum()[['a_match_points', 'away_score', 'home_score']].reset_index()
-    away_table.columns = ['match_day', 'points', 'goals', 'goals_sf']
+    away_table = away_df.groupby(['date']).sum()[['a_match_points', 'away_score', 'home_score']].reset_index()
+    away_table.columns = ['date', 'points', 'goals', 'goals_sf']
     away_table['goals_df'] = away_table.goals - away_table.goals_sf
     away_table['host'] = 'away'
 
     full_table = pd.concat([home_table, away_table], ignore_index = True)
-    
+    full_table = full_table.sort_values('date', ascending = True)
+
     #get streaks
-    full_table = full_table.sort_values('match_day', ascending = True)
     full_table['start_of_streak'] = full_table.points.ne(full_table.points.shift())
     full_table['streak_id'] = full_table['start_of_streak'].cumsum()
     full_table['streak_counter'] = full_table.groupby('streak_id').cumcount() + 1
-    full_table = full_table[full_table.match_day == full_table.match_day.max()]
 
-    if full_table.points.min() == 3:
-        win_streak = full_table.streak_counter.sum()
+    streak_table = full_table[full_table.date == full_table.date.max()]
+
+    if streak_table.points.min() == 3:
+        win_streak = streak_table.streak_counter.sum()
         loss_streak = 0
         draw_streak = 0
-    elif full_table.points.min() == 0:
+    elif streak_table.points.min() == 0:
         win_streak = 0
-        loss_streak = full_table.streak_counter.sum()
+        loss_streak = streak_table.streak_counter.sum()
         draw_streak = 0
     else:
         win_streak = 0
         loss_streak = 0
-        draw_streak = full_table.streak_counter.sum()
+        draw_streak = streak_table.streak_counter.sum()
     
     home_points = home_table.points.sum()
     home_goals = home_table.goals.sum()
@@ -113,13 +144,11 @@ def get_match_stats(x, team, delta):
     total_draws = home_draws + away_draws
     total_losses = home_losses + away_losses
     
-
     #getting data for a given delta
-    h_delta = home_table[(home_table.match_day >= (x.match_day - delta)) & (home_table.match_day < x.match_day)]
-    home_l_points = h_delta.points.sum()
+    full_table_delta = full_table[full_table.date.isin(full_table.date[-3:])]
 
-    a_delta = away_table[(away_table.match_day >= (x.match_day - delta)) & (away_table.match_day < x.match_day)]
-    away_l_points = a_delta.points.sum()
+    home_l_points = full_table_delta[full_table_delta.host == 'home'].points.sum()
+    away_l_points = full_table_delta[full_table_delta.host == 'away'].points.sum()
 
     #total points in given delta
     total_l_points = home_l_points + away_l_points
@@ -128,13 +157,8 @@ def get_match_stats(x, team, delta):
 
 def get_days_ls_match(x, team):
 
-    test_date = df[(df.match_day == (x.match_day - 1)) & (df.season == x.season) & (df.home_team == team)].date
-
-    #checks if the last date was hosted by the current home team
-    if len(test_date) > 0:
-        last_date = test_date.max()
-    else:
-        last_date = df[(df.match_day == (x.match_day - 1)) & (df.season == x.season) & (df.away_team == team)].date.max()
+    #filtering last game of the team and getting date
+    last_date = df[(df.date < x.date) & (df.season == x.season) & (df.match_name.str.contains(team))].date.max()
 
     days = (x.date - last_date)/np.timedelta64(1,'D')
 
@@ -166,7 +190,7 @@ def create_main_cols(x, team):
     ls_team_rank = get_rank(x, team, 1)
 
     #get main match stats
-    total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak = get_match_stats(x, team, 3)
+    total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak = get_match_stats(x, team)
 
     #get days since last match
     days = get_days_ls_match(x, team)    
@@ -192,7 +216,9 @@ df[at_cols] = pd.DataFrame(
 df['ls_winner'] = df.apply(lambda x: get_ls_winner(x), axis = 1)
 
 #saving data
-df.to_csv(os.path.join(FT_DIR, 'ft_df.csv', index = False)
+df.to_csv(os.path.join(FT_DIR, 'ft_df.csv'), index = False)
+
+
 
 
 #maybe create my own metric to give weight to the teams

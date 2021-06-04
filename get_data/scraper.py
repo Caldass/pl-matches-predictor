@@ -69,7 +69,7 @@ for url in all_urls:
             'result' : col.find('td', attrs = {'class' : 'center bold table-odds table-score'}).text,
 
             #home winning odd
-            'h_odd' : is_empty(col.find('td', attrs = {'class' : "result-ok odds-nowrp"})),
+            'h_odd' : is_empty(col.find('td', attrs = {'class' : "odds-nowrp"})),
 
             #draw odd
             'd_odd' : is_empty(col.find('td', attrs = {'class' : "odds-nowrp"}).findNext( attrs = {'class' : "odds-nowrp"})),
@@ -105,6 +105,9 @@ for url in all_urls:
 
 driver.quit()
 print('scraping finished!')
+
+#reordering columns
+df = df[['season', 'date', 'match_name', 'result', 'h_odd', 'd_odd', 'a_odd']]
 
 #saving full df to csv
 df.to_csv(os.path.join(DATA_DIR,  'matches.csv'), index = False)
