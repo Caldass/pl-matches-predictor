@@ -32,7 +32,7 @@ df['winner'] = np.where(df.home_score > df.away_score, 'HOME_TEAM', np.where(df.
 df.drop(columns = 'result', inplace = True)
 
 to_int = ['season','home_score', 'away_score']
-to_float = ['a_odd', 'd_odd']
+to_float = ['a_odd', 'd_odd', 'h_odd']
 
 
 #turning columns into integers and floats
@@ -106,6 +106,9 @@ def get_match_stats(x, team):
     full_table['streak_id'] = full_table['start_of_streak'].cumsum()
     full_table['streak_counter'] = full_table.groupby('streak_id').cumcount() + 1
 
+    #make exponentially weighted average
+    #full_table['w_avg_points'] = full_table.points.ewm(span=3, adjust=False).mean()
+
     streak_table = full_table[full_table.date == full_table.date.max()]
 
     if streak_table.points.min() == 3:
@@ -151,7 +154,8 @@ def get_match_stats(x, team):
     away_l_points = full_table_delta[full_table_delta.host == 'away'].points.sum()
 
     #total points in given delta
-    total_l_points = home_l_points + away_l_points
+    total_l_points = (home_l_points + away_l_points)/3
+    #total_l_points = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_points.sum()
 
     return total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
 

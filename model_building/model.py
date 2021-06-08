@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score
-
+from sklearn.metrics import classification_report
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
 
@@ -42,7 +42,7 @@ X_train = scaler.fit_transform(X_train)
 X_test = scaler.fit_transform(X_test)
 
 #creating models variable to iterate through each model and print result
-models = [LogisticRegression(max_iter= 1000),RandomForestClassifier(), GradientBoostingClassifier()]
+models = [LogisticRegression(max_iter= 1000, multi_class = 'multinomial'),RandomForestClassifier(), GradientBoostingClassifier()]
 
 names = ['Logistic Regression', 'Random Forest', 'Gradient Boost']
 
@@ -52,7 +52,7 @@ for model, name in zip(models, names):
     scores = cross_val_score(model, X_train, y_train ,scoring= 'accuracy', cv=5)
     print(name, ":", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), " - Elapsed time: ", time.time() - start)
 
-clf = LogisticRegression(max_iter = 1000)
+clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
 clf.fit(X_train, y_train)
 
 clf = RandomForestClassifier()
@@ -60,17 +60,25 @@ clf.fit(X_train, y_train)
 
 result = clf.predict(X_test)
 
-print(accuracy_score(y_test, result))
+print(classification_report(y_test, result, digits = 3))
 
-pqp = df_dum.columns
+
+#feature importances
+
 imp = clf.feature_importances_
 
 
-feature_importances = pd.DataFrame(clf.coef_[0],
+feature_importances = pd.DataFrame(clf.feature_importances_,
                                    index = X.columns,
                                     columns=['importance']).sort_values('importance', ascending = False)
 
 feature_importances
+
+clf.classes_
+clf.coef_[0]
+
+
+clf.coef_[0]
 
 
 #getting proffits
@@ -92,17 +100,17 @@ test_df.head()
 
 test_df['profit'] = (test_df.winner == test_df.pred) * test_df.winning_odd * 100
 
-test_df['profit'] = np.where(test_df.profit == 0, -100, test_df.profit)
 retorno = test_df.profit.sum()
 investimento = len(test_df) * 100
 
 lucro = retorno - investimento
 
+lucro/investimento
 
 
 
 
-
+test_df[test_df.pred == 0]
 
 
 
