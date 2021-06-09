@@ -11,6 +11,11 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import classification_report
+from sklearn.feature_selection import RFE
+import matplotlib.pyplot as plt
+
+
+
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
 
@@ -29,12 +34,22 @@ df.fillna(-33, inplace = True)
 
 df_dum = pd.get_dummies(df)
 
-np.random.seed(101)
+selected_features = ['h_odd', 'd_odd', 'a_odd', 'ht_rank', 
+        'ht_days_ls_match', 'ht_l_points',
+        'ht_l_goals', 'ht_goals_sf',
+        'ht_l_wavg_goals_sf', 
+       'ht_win_streak', 'ht_loss_streak',
+       'at_rank', 'at_days_ls_match','at_l_points',
+       'at_l_goals', 'at_goals_sf',
+        'at_l_wavg_goals_sf', 
+       'at_win_streak', 'at_loss_streak', 'at_l_wavg_goals', 'ht_l_wavg_goals']
+       
 
 X = df_dum.drop(columns = ['winner'], axis = 1)
+X = X[selected_features]
 y = df_dum.winner.values
 
-X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2)
+X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2, random_state = 101)
 
 scaler = MinMaxScaler()
 
@@ -52,6 +67,80 @@ for model, name in zip(models, names):
     scores = cross_val_score(model, X_train, y_train ,scoring= 'accuracy', cv=5)
     print(name, ":", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), " - Elapsed time: ", time.time() - start)
 
+np.random.seed(101)
+
+X = df_dum.drop(columns = ['winner'], axis = 1)
+y = df_dum.winner.values
+
+clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
+
+rfe = RFE(estimator = clf, n_features_to_select = 13, step=1)
+rfe.fit(X, y)
+X, y = rfe.transform(X, y)
+
+X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2)
+
+scaler = MinMaxScaler()
+
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.fit_transform(X_test)
+
+
+scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
+print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()))
+
+a = pd.DataFrame(selector.support_,
+                                   index = X.columns,
+                                    columns=['importance']).sort_values('importance', ascending = True)
+
+a[a.importance == True].index.tolist()
+
+#RFE --------------------------------------------------------------------------
+acc_results = []
+n_features = []
+
+for i in range(5, 40):
+    X = df_dum.drop(columns = ['winner'], axis = 1)
+    y = df_dum.winner.values
+
+    selector = RFE(LogisticRegression(max_iter= 1000, multi_class = 'multinomial'), n_features_to_select = i, step=1)
+    selector.fit_transform(X, y)
+
+
+    X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2)
+
+    scaler = MinMaxScaler()
+
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.fit_transform(X_test)
+
+    clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
+
+
+    start = time.time()
+    scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
+    print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), 'N_features :', i)
+    acc_results.append(scores.mean())
+    n_features.append(i)
+
+plt.plot(n_features, acc_results)
+plt.show()
+
+
+for i in range(X.shape[1]):
+	print('Column: %d, Selected %s, Rank: %.3f' % (i, selector.support_[i], selector.ranking_[i]))
+
+a = pd.DataFrame(selector.support_,
+                                   index = X.columns,
+                                    columns=['importance']).sort_values('importance', ascending = True)
+
+a[a.importance == True].index.tolist()
+
+
+
+#end of rfe ---------------------------------------
+
+
 clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
 clf.fit(X_train, y_train)
 
@@ -68,17 +157,17 @@ print(classification_report(y_test, result, digits = 3))
 imp = clf.feature_importances_
 
 
-feature_importances = pd.DataFrame(clf.feature_importances_,
+feature_importances = pd.DataFrame(np.exp(clf.coef_[1]),
                                    index = X.columns,
                                     columns=['importance']).sort_values('importance', ascending = False)
 
 feature_importances
 
 clf.classes_
-clf.coef_[0]
+clf.coef_[2]
 
 
-clf.coef_[0]
+
 
 
 #getting proffits
