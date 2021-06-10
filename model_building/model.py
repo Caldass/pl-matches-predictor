@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import time
 import os
-from pandas.io.formats.format import TextAdjustment
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -18,6 +17,7 @@ from sklearn.model_selection import GridSearchCV
 #directories
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
+MODEL_DIR = os.path.join(BASE_DIR, 'model_building', 'models')
 
 df = pd.read_csv(DATA_DIR)
 
@@ -106,8 +106,6 @@ clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
 rfe = RFE(estimator = clf, n_features_to_select = 13, step=1)
 rfe.fit(X, y)
 
-X[rfe.get_support()]
-
 X_transformed = rfe.transform(X)
 
 X_train, X_test, y_train, y_test = train_test_split(X_transformed,y, test_size = 0.2)
@@ -120,6 +118,7 @@ X_test = scaler.fit_transform(X_test)
 scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
 print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()))
 
+#getting column names
 featured_columns = pd.DataFrame(rfe.support_,
                             index = X.columns,
                             columns=['is_in'])
@@ -127,13 +126,14 @@ featured_columns = pd.DataFrame(rfe.support_,
 featured_columns = featured_columns[featured_columns.is_in == True].index.tolist()
 featured_columns                            
 
+#column importances
 importances = pd.DataFrame(rfe.ranking_,
                             index = X.columns,
-                            columns=['ranking']).sort_values('ranking', ascending = True)[importances.ranking == 1]
-
+                            columns=['ranking']).sort_values('ranking', ascending = True)
+importances = importances[importances.ranking == 1]
+importances
 
 #tuning logistic regression
-
 lr = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
 
 parameters = {'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
@@ -146,49 +146,23 @@ start = time.time()
 gs.fit(X_train,y_train)
 print(gs.best_score_, gs.best_params_,  time.time() - start)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 rf = RandomForestClassifier()
 rf.fit(X_train, y_train)
 
 gb = GradientBoostingClassifier()
 gb.fit(X_train, y_train)
 
-result = clf.predict(X_test)
+#testing models on unseen data 
+tpred_lr = gs.best_estimator_.predict(X_test)
+tpred_rf = rf.predict(X_test)
+tpred_gb = gb.predict(X_test)
 
-print(classification_report(y_test, result, digits = 3))
-
-
-#feature importances
-
-imp = clf.feature_importances_
-
-
-feature_importances = pd.DataFrame(np.exp(clf.coef_[1]),
-                                   index = X.columns,
-                                    columns=['importance']).sort_values('importance', ascending = False)
-
-feature_importances
-
-clf.classes_
-clf.coef_[2]
+print(classification_report(y_test, tpred_lr, digits = 3))
+print(classification_report(y_test, tpred_rf, digits = 3))
+print(classification_report(y_test, tpred_gb, digits = 3))
 
 
-
-
-
-#getting proffits
+#function to get winning odd value in simulation dataset
 def get_winning_odd(df):
     if df.winner == 2:
         result = df.h_odd
@@ -198,64 +172,46 @@ def get_winning_odd(df):
         result = df.d_odd
     return result
 
-test_df = pd.DataFrame(scaler.inverse_transform(X_test),columns =  X.columns)
-test_df['pred'] = result
+#creating dataframe with test data to simulate betting winnings with models
+
+test_df = pd.DataFrame(scaler.inverse_transform(X_test),columns =  featured_columns)
+test_df['tpred_lr'] = tpred_lr
+test_df['tpred_rf'] = tpred_rf
+test_df['tpred_gb'] = tpred_gb
+
 test_df['winner'] = y_test
-
 test_df['winning_odd'] = test_df.apply(lambda x: get_winning_odd(x), axis = 1)
-test_df.head()
 
-test_df['profit'] = (test_df.winner == test_df.pred) * test_df.winning_odd * 100
+test_df['lr_profit'] = (test_df.winner == test_df.tpred_lr) * test_df.winning_odd * 100
+test_df['rf_profit'] = (test_df.winner == test_df.tpred_rf) * test_df.winning_odd * 100
+test_df['gb_profit'] = (test_df.winner == test_df.tpred_gb) * test_df.winning_odd * 100
 
-retorno = test_df.profit.sum()
-investimento = len(test_df) * 100
+investment = len(test_df) * 100
 
-lucro = retorno - investimento
+lr_return = test_df.lr_profit.sum() - investment
+rf_return = test_df.rf_profit.sum() - investment
+gb_return = test_df.gb_profit.sum() - investment
 
-lucro/investimento
+profit = (lr_return/investment * 100).round(2)
 
+print(f'''Logistic Regression return: {lr_return}
 
+Random Forest return: {rf_return}
 
+Gradient Boost return:  {gb_return} \n
 
-test_df[test_df.pred == 0]
-
-
-
-
-
-
-
-
-'''
-def get_prediction(df):
-    if (df.h_odd < df.d_odd) & (df.h_odd < df.a_odd):
-        result = 2
-    elif (df.a_odd < df.d_odd) & (df.a_odd < df.h_odd):
-        result = 1
-    else:
-        result = 0
-    return result
-
-df['teste'] = df.apply(lambda x: get_prediction(x), axis = 1)
-df['pls'] = df.teste == df.winner
-
-df.pls.mean()
-
-df.to_excel('eohq.xlsx', index = False)
+Logistic Regression model profit percentage : {profit} %
+''')
 
 
+#retraining final model on full data
+gs.best_estimator_.fit(X_transformed, y)
 
+#Saving model and features
+model_data = pd.Series( {
+    'model': gs,
+    'features': featured_columns
+} )
 
-selected_features = ['h_odd', 'd_odd', 'a_odd', 'ht_rank', 
-        'ht_days_ls_match', 'ht_l_points',
-        'ht_l_goals', 'ht_goals_sf',
-        'ht_l_wavg_goals_sf', 
-       'ht_win_streak', 'ht_loss_streak',
-       'at_rank', 'at_days_ls_match','at_l_points',
-       'at_l_goals', 'at_goals_sf',
-        'at_l_wavg_goals_sf', 
-       'at_win_streak', 'at_loss_streak', 'at_l_wavg_goals', 'ht_l_wavg_goals']
-
-
-
-'''
+#saving to pickle
+model_data.to_pickle(os.path.join(MODEL_DIR, 'lr_model.pkl'))
