@@ -1,7 +1,5 @@
 import os
 import numpy as np
-from numpy.core.numeric import full
-from numpy.lib import tracemalloc_domain
 import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
@@ -107,7 +105,9 @@ def get_match_stats(x, team):
     full_table['streak_counter'] = full_table.groupby('streak_id').cumcount() + 1
 
     #make exponentially weighted average
-    #full_table['w_avg_points'] = full_table.points.ewm(span=3, adjust=False).mean()
+    full_table['w_avg_points'] = full_table.points.ewm(span=3, adjust=False).mean()
+    full_table['w_avg_goals'] = full_table.goals.ewm(span=3, adjust=False).mean()
+    full_table['w_avg_goals_sf'] = full_table.goals_sf.ewm(span=3, adjust=False).mean()
 
     streak_table = full_table[full_table.date == full_table.date.max()]
 
@@ -153,11 +153,16 @@ def get_match_stats(x, team):
     home_l_points = full_table_delta[full_table_delta.host == 'home'].points.sum()
     away_l_points = full_table_delta[full_table_delta.host == 'away'].points.sum()
 
-    #total points in given delta
+    #total metric in given delta averaged
     total_l_points = (home_l_points + away_l_points)/3
-    #total_l_points = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_points.sum()
+    total_l_goals = (home_goals + away_goals)/3
+    total_l_goals_sf = (home_goals_sf + away_goals)/3
 
-    return total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
+    total_l_w_avg_points = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_points.sum()
+    total_l_w_avg_goals = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_goals.sum()
+    total_l_w_avg_goals_sf = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_goals_sf.sum()
+
+    return total_points, total_l_points, total_l_w_avg_points, total_goals, total_l_goals, total_l_w_avg_goals, total_goals_sf, total_l_goals_sf, total_l_w_avg_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
 
 def get_days_ls_match(x, team):
 
@@ -194,15 +199,15 @@ def create_main_cols(x, team):
     ls_team_rank = get_rank(x, team, 1)
 
     #get main match stats
-    total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak = get_match_stats(x, team)
+    total_points, total_l_points, total_l_w_avg_points, total_goals, total_l_goals, total_l_w_avg_goals, total_goals_sf, total_l_goals_sf, total_l_w_avg_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak = get_match_stats(x, team)
 
     #get days since last match
     days = get_days_ls_match(x, team)    
 
-    return team_rank, ls_team_rank, days, total_points, total_l_points, total_goals, total_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
+    return team_rank, ls_team_rank, days, total_points, total_l_points, total_l_w_avg_points, total_goals, total_l_goals, total_l_w_avg_goals, total_goals_sf, total_l_goals_sf, total_l_w_avg_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
 
 cols = ['_rank', '_ls_rank', '_days_ls_match', '_points',
- '_l_points', '_goals', '_goals_sf', '_wins', '_draws', '_losses', '_win_streak', '_loss_streak', '_draw_streak']
+ '_l_points', '_l_wavg_points', '_goals', '_l_goals', '_l_wavg_goals', '_goals_sf', '_l_goals_sf', '_l_wavg_goals_sf','_wins', '_draws', '_losses', '_win_streak', '_loss_streak', '_draw_streak']
 
 ht_cols = ['ht' + col for col in cols]
 at_cols = ['at' + col for col in cols]
@@ -221,16 +226,3 @@ df['ls_winner'] = df.apply(lambda x: get_ls_winner(x), axis = 1)
 
 #saving data
 df.to_csv(os.path.join(FT_DIR, 'ft_df.csv'), index = False)
-
-
-
-
-#maybe create my own metric to give weight to the teams
-
-
-#amount of home w
-#amount of away w
-#amount of home d
-#amount of away d
-#amount of home l
-#amount of away l
