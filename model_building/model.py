@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import time
 import os
+import pickle
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -213,5 +214,5 @@ model_data = pd.Series( {
     'features': featured_columns
 } )
 
-#saving to pickle
-model_data.to_pickle(os.path.join(MODEL_DIR, 'lr_model.pkl'))
+#saving model
+pickle.dump(model_data, open(os.path.join(MODEL_DIR, "lr_model.pkl"), 'wb'))
