@@ -6,7 +6,7 @@ import os
 
 #directories
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
-MODEL_DIR = os.path.join(BASE_DIR, 'heroku', 'models')
+MODEL_DIR = os.path.join(BASE_DIR, 'models')
 
 #loading model
 model_data = pickle.load(open(os.path.join(MODEL_DIR, "lr_model.pkl"), 'rb'))
