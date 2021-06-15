@@ -18,7 +18,7 @@ from sklearn.model_selection import GridSearchCV
 #directories
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
-MODEL_DIR = os.path.join(BASE_DIR, 'model_building', 'models')
+MODEL_DIR = os.path.join(BASE_DIR, 'heroku', 'models')
 
 df = pd.read_csv(DATA_DIR)
 
@@ -68,21 +68,17 @@ for model, name in zip(models, names):
 acc_results = []
 n_features = []
 
+#best classifier on training data
+clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
+
 for i in range(5, 40):
-    X = df_dum.drop(columns = ['winner'], axis = 1)
-    y = df_dum.winner.values
+    rfe = RFE(estimator = clf, n_features_to_select = i, step=1)
+    rfe.fit(X, y)
+    X_temp = rfe.transform(X)
 
     np.random.seed(101)
 
-    clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
-
-    rfe = RFE(estimator = clf, n_features_to_select = i, step=1)
-    rfe.fit(X, y)
-    X = rfe.transform(X)
-
-    X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2)
-
-    scaler = MinMaxScaler()
+    X_train, X_test, y_train, y_test = train_test_split(X_temp,y, test_size = 0.2)
 
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.fit_transform(X_test)
@@ -96,28 +92,18 @@ for i in range(5, 40):
 plt.plot(n_features, acc_results)
 plt.show()
 
+
 #getting the best 13 features from RFE
-X = df_dum.drop(columns = ['winner'], axis = 1)
-y = df_dum.winner.values
-
-np.random.seed(101)
-
-clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
-
 rfe = RFE(estimator = clf, n_features_to_select = 13, step=1)
 rfe.fit(X, y)
-
 X_transformed = rfe.transform(X)
 
+np.random.seed(101)
 X_train, X_test, y_train, y_test = train_test_split(X_transformed,y, test_size = 0.2)
-
-scaler = MinMaxScaler()
 
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.fit_transform(X_test)
 
-scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
-print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()))
 
 #getting column names
 featured_columns = pd.DataFrame(rfe.support_,
@@ -125,22 +111,20 @@ featured_columns = pd.DataFrame(rfe.support_,
                             columns=['is_in'])
 
 featured_columns = featured_columns[featured_columns.is_in == True].index.tolist()
-featured_columns                            
 
 #column importances
 importances = pd.DataFrame(rfe.ranking_,
                             index = X.columns,
                             columns=['ranking']).sort_values('ranking', ascending = True)
 importances = importances[importances.ranking == 1]
-importances
+
+
 
 #tuning logistic regression
-lr = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
-
 parameters = {'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
  'fit_intercept': (True, False), 'solver' : ('newton-cg', 'sag', 'saga', 'lbfgs'), 'class_weight' : (None, 'balanced')}
 
-gs = GridSearchCV(lr,parameters,scoring='accuracy',cv=3)
+gs = GridSearchCV(clf, parameters, scoring='accuracy', cv=3)
 start = time.time()
 
 #printing best fits and time elapsed
@@ -153,6 +137,7 @@ rf.fit(X_train, y_train)
 gb = GradientBoostingClassifier()
 gb.fit(X_train, y_train)
 
+
 #testing models on unseen data 
 tpred_lr = gs.best_estimator_.predict(X_test)
 tpred_rf = rf.predict(X_test)
@@ -161,6 +146,7 @@ tpred_gb = gb.predict(X_test)
 print(classification_report(y_test, tpred_lr, digits = 3))
 print(classification_report(y_test, tpred_rf, digits = 3))
 print(classification_report(y_test, tpred_gb, digits = 3))
+
 
 
 #function to get winning odd value in simulation dataset
@@ -195,11 +181,11 @@ gb_return = test_df.gb_profit.sum() - investment
 
 profit = (lr_return/investment * 100).round(2)
 
-print(f'''Logistic Regression return: {lr_return}
+print(f'''Logistic Regression return: ${lr_return}
 
-Random Forest return: {rf_return}
+Random Forest return: ${rf_return}
 
-Gradient Boost return:  {gb_return} \n
+Gradient Boost return:  ${gb_return} \n
 
 Logistic Regression model profit percentage : {profit} %
 ''')
