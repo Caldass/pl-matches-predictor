@@ -2,8 +2,7 @@ import pandas as pd
 import requests
 
 #prediction request url
-#url = 'https://rental-properties.herokuapp.com/predict'
-url = 'http://192.168.0.9:5000/predict'
+url = 'https://pl-matches-predictor.herokuapp.com/predict'
 
 #headers
 headers = {'Content-type': 'application/json'}
