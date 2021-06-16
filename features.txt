@@ -8,7 +8,7 @@ Here are the prefixes meanings:
 _match_points - Team's points in that specific match. (column not used in model)
 _rank - Team's rank in that season so far.
 _ls_rank - Team's finishing rank in the previous season.
-_days_ls_match - Team's amount of days since last match.
+_days_ls_match - Amount of days since last match.
 _points - Team's points in that season so far.
 _l_points - Team's average points in the last 3 matches.
 _goals - Team's goals in that season so far.
