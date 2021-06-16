@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import classification_report
@@ -38,7 +39,7 @@ df['winner'] = np.where(df.winner == 'HOME_TEAM', 2, np.where(df.winner == 'AWAY
 df_dum = pd.get_dummies(df)
 
 np.random.seed(101)
-       
+
 X = df_dum.drop(columns = ['winner'], axis = 1)
 y = df_dum.winner.values
 
@@ -52,9 +53,10 @@ X_train = scaler.fit_transform(X_train)
 X_test = scaler.fit_transform(X_test)
 
 #creating models variable to iterate through each model and print result
-models = [LogisticRegression(max_iter= 1000, multi_class = 'multinomial'),RandomForestClassifier(), GradientBoostingClassifier()]
+models = [LogisticRegression(max_iter= 1000, multi_class = 'multinomial'),
+RandomForestClassifier(), GradientBoostingClassifier(), KNeighborsClassifier()]
 
-names = ['Logistic Regression', 'Random Forest', 'Gradient Boost']
+names = ['Logistic Regression', 'Random Forest', 'Gradient Boost', 'KNN']
 
 #loop through each model and print train score and elapsed time
 for model, name in zip(models, names):
@@ -112,12 +114,18 @@ featured_columns = pd.DataFrame(rfe.support_,
 
 featured_columns = featured_columns[featured_columns.is_in == True].index.tolist()
 
-#column importances
-importances = pd.DataFrame(rfe.ranking_,
-                            index = X.columns,
-                            columns=['ranking']).sort_values('ranking', ascending = True)
-importances = importances[importances.ranking == 1]
+#column importances for each class
+importances_d = pd.DataFrame(np.exp(rfe.estimator_.coef_[0]),
+                            index = featured_columns,
+                            columns=['coef']).sort_values('coef', ascending = False)
 
+importances_a = pd.DataFrame(np.exp(rfe.estimator_.coef_[1]),
+                            index = featured_columns,
+                            columns=['coef']).sort_values('coef', ascending = False)
+
+importances_h = pd.DataFrame(np.exp(rfe.estimator_.coef_[2]),
+                            index = featured_columns,
+                            columns=['coef']).sort_values('coef', ascending = False)
 
 
 #tuning logistic regression
@@ -137,15 +145,20 @@ rf.fit(X_train, y_train)
 gb = GradientBoostingClassifier()
 gb.fit(X_train, y_train)
 
+knn = KNeighborsClassifier()
+knn.fit(X_train, y_train)
+
 
 #testing models on unseen data 
 tpred_lr = gs.best_estimator_.predict(X_test)
 tpred_rf = rf.predict(X_test)
 tpred_gb = gb.predict(X_test)
+tpred_knn = knn.predict(X_test)
 
 print(classification_report(y_test, tpred_lr, digits = 3))
 print(classification_report(y_test, tpred_rf, digits = 3))
 print(classification_report(y_test, tpred_gb, digits = 3))
+print(classification_report(y_test, tpred_knn, digits = 3))
 
 
 
@@ -165,6 +178,7 @@ test_df = pd.DataFrame(scaler.inverse_transform(X_test),columns =  featured_colu
 test_df['tpred_lr'] = tpred_lr
 test_df['tpred_rf'] = tpred_rf
 test_df['tpred_gb'] = tpred_gb
+test_df['tpred_knn'] = tpred_knn
 
 test_df['winner'] = y_test
 test_df['winning_odd'] = test_df.apply(lambda x: get_winning_odd(x), axis = 1)
@@ -172,12 +186,14 @@ test_df['winning_odd'] = test_df.apply(lambda x: get_winning_odd(x), axis = 1)
 test_df['lr_profit'] = (test_df.winner == test_df.tpred_lr) * test_df.winning_odd * 100
 test_df['rf_profit'] = (test_df.winner == test_df.tpred_rf) * test_df.winning_odd * 100
 test_df['gb_profit'] = (test_df.winner == test_df.tpred_gb) * test_df.winning_odd * 100
+test_df['knn_profit'] = (test_df.winner == test_df.tpred_knn) * test_df.winning_odd * 100
 
 investment = len(test_df) * 100
 
 lr_return = test_df.lr_profit.sum() - investment
 rf_return = test_df.rf_profit.sum() - investment
 gb_return = test_df.gb_profit.sum() - investment
+knn_return = test_df.knn_profit.sum() - investment
 
 profit = (lr_return/investment * 100).round(2)
 
@@ -185,7 +201,9 @@ print(f'''Logistic Regression return: ${lr_return}
 
 Random Forest return: ${rf_return}
 
-Gradient Boost return:  ${gb_return} \n
+Gradient Boost return:  ${gb_return}
+
+KNN return:  ${knn_return} \n
 
 Logistic Regression model profit percentage : {profit} %
 ''')

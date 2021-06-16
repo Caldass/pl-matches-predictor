@@ -1,0 +1,27 @@
+Features that contain "_" in the beginning of its name are features that were created both for home and away team.
+
+Here are the prefixes meanings:
+"h", "ht": Home team.
+"d" : Draw.
+"a", "at": Away team.
+
+_match_points - Team's points in that specific match. (column not used in model)
+_rank - Team's rank in that season so far.
+_ls_rank - Team's finishing rank in the previous season.
+_days_ls_match - Team's amount of days since last match.
+_points - Team's points in that season so far.
+_l_points - Team's average points in the last 3 matches.
+_goals - Team's goals in that season so far.
+_goals_sf - Team's goals suffered in that season so far.
+_l_goals - Team's average goals in the last 3 matches.
+_l_goals_sf - Team's average goals suffered in the last 3 matches.
+_l_wavg_points - Team's weighted exponential average points in the last 3 games.
+_l_wavg_goals - Team's weighted exponential average goals in the last 3 games.
+_l_wavg_goals_sf - Team's weighted exponential average goals suffered in the last 3 games.
+_wins - Team's wins in that season so far.
+_draws - Team's draws in that season so far.
+_losses - Team's losses in that season so far.
+_win_streak - Team's current win streak.
+_loss_streak - Team's current loss streak.
+_draw_streak - Team's current draw streak.
+ls_winner - Winner of the last match between both teams.
