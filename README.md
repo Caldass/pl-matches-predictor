@@ -45,8 +45,8 @@ There's a file called features.txt in the repo that explains each feature.
 ## EDA
 In this step I did a brief data exploration in order to get a better understanding of it. Here are some highlights of the data exploration:
 
-![alt text](https://github.com/Caldass/pl-matches-predictor/blob/main/img/distributions.png "Distributions of RFE features")
-![alt text](https://github.com/Caldass/pl-matches-predictor/blob/main/img/pairplot.png "RFE features pairplot")
+![alt text](https://github.com/Caldass/pl-matches-predictor/blob/master/img/distributions.png "Distributions of RFE features")
+![alt text](https://github.com/Caldass/pl-matches-predictor/blob/master/img/pairplot.png "RFE features pairplot")
 
 
 ## Model Building
@@ -68,7 +68,7 @@ Given that Logistic Regression had the best training results it was the model ch
 
 Since there were more than 40 features in total, I performed a feature selection using the Recursive Feature Elimination (RFE) method. After applying RFE, it was possible to maintain the accuracy level with less than half of the number of original features:
 
-![alt text](https://github.com/Caldass/pl-matches-predictor/blob/main/img/rfe.png "RFE")
+![alt text](https://github.com/Caldass/pl-matches-predictor/blob/master/img/rfe.png "RFE")
 
 
 After selecting 13 as the ideal number of features I tuned Logistic Regression. 
@@ -80,7 +80,7 @@ The simulation contained test data of 1216 matches. We had a fictional investmen
 
 Here's how the models performed:
 
-![alt text](https://github.com/Caldass/pl-matches-predictor/blob/main/img/simulation.jpg "Simulation")
+![alt text](https://github.com/Caldass/pl-matches-predictor/blob/master/img/simulation.jpg "Simulation")
 
 
 ## Productionization
@@ -105,6 +105,6 @@ Under _heroku/example/example.py_ there's an input example to help the understan
 ## Conclusion
 Predicting soccer matches is not an easy task. Data Scientists have been trying to predict it and beat the betting odds efficiently for years. The results of this project were very satisfying considering it was possible to have an accuracy score better than just a random prediction or a "home team always wins" prediction:
 
-![alt text](https://github.com/Caldass/pl-matches-predictor/blob/main/img/comparison.jpg "Comparison")
+![alt text](https://github.com/Caldass/pl-matches-predictor/blob/master/img/comparison.jpg "Comparison")
 
 And more importantly, it was also possible to have a profit percentage on a investment simulation of approximately 4.81% using the model's prediction. 
