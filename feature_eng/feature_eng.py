@@ -12,10 +12,6 @@ df = pd.read_csv(os.path.join(DATA_DIR, 'matches.csv'))
 df.info()
 df.isna().sum()
 
-#filling NA home odds
-df.fillna(0, inplace = True)
-
-
 #setting season to be the start year of a season
 df['season'] = df.season.str.split('/').str[0]
 

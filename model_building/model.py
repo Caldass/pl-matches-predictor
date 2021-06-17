@@ -44,7 +44,7 @@ X = df_dum.drop(columns = ['winner'], axis = 1)
 y = df_dum.winner.values
 
 #splitting into train and test set to check which model is the best one to work on
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 101)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
 
 #scaling features
 scaler = MinMaxScaler()
@@ -92,6 +92,8 @@ for i in range(5, 40):
     n_features.append(i)
 
 plt.plot(n_features, acc_results)
+plt.ylabel('Accuracy')
+plt.xlabel('N features')
 plt.show()
 
 
