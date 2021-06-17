@@ -2,7 +2,7 @@
 - Deployed tool that predicts which team will win a match (Accuracy ~ 56.4%) in order to make profit out of betting markets.
 - Had a profit of over 4.81% in a investment simulation using the built tool.
 - Scraped more than 6000 matches data from https://www.oddsportal.com/ using BeatifulSoup and Selenium.
-- Created 35+ metrics in order to help predict the match outcome.
+- Created 35+ features in order to help predict the match outcome.
 - Built models and optimized Logistic Regression.
 - Productionized the model using Flask and Heroku.
 
@@ -22,12 +22,14 @@ Used BeautifulSoup and Selenium to scrape 6077 Premier League matches from https
 - **a_odd** - Away team winning odd.
 
 ## Data cleaning
-Did a brief data cleaning in order to prepare our dataset to create new features:
+Did a brief data cleaning and created main features in order to prepare the dataset for the next step:
 
-- Got beginning year of a season.
-- Split match name into home and away teams.
 - Transformed date into datetime.
 - Changed odd columns to float.
+- Got beginning year of a season.
+- Split match name into home and away teams.
+- Split scores into home and away score.
+- Created feature with the match result.
 
 ## Feature Engineering
 Created 35+ new features in order to help predict the match outcome. Most features had to be created for each team, therefore the prefix "ht" for home team and "at" for away team. Here are some of the created features:
