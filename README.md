@@ -10,6 +10,9 @@
 **Python version:** 3.9.5 <br />
 **Packages:** Pandas, Numpy, Flask, Sklearn, Pickle, Seaborn, Matplotlib, BeatifulSoup, Selenium. <br />
 
+## Medium Project Walkthrough 
+https://arthurmlcaldass.medium.com/beating-soccer-odds-using-machine-learning-project-walkthrough-a1c3445b285a
+
 ## Web Scraping
 Used BeautifulSoup and Selenium to scrape 6077 Premier League matches from https://www.oddsportal.com/. The data contained matches from the seasons 2005/2006 to 2020/2021. The dataset built after the Web scraping contained the following features:
 
